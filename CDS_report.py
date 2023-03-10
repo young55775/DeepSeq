@@ -3,7 +3,6 @@ import numpy as np
 from tqdm import tqdm
 import argparse
 
-
 # show low cov range
 ## example: a = [1,2,3,4,5,6,10,11,12,13,15,16,19], return [(1, 6), (10, 13), (15, 16)]
 def stat2region(lst):
@@ -17,7 +16,7 @@ def stat2region(lst):
             start = lst[i + 1]
         else:
             continue
-    ran.append((lst[-1], lst[-1]))
+    ran.append((lst[-1],lst[-1]))
     return ran
 
 
@@ -34,31 +33,32 @@ def recognition(pos, anno):
     return [n for n in lst2 if n in lst1]
 
 
+# tup1 exon range; tup2 seq range
+def intersect(tup1, tup2):
+    a1 = tup1[0]
+    a2 = tup1[1]
+    b1 = tup2[0]
+    b2 = tup2[1]
+    # judge if there is an intersection
+    if a2 < b1 or a1 > b2:
+        return False
+    else:
+        lst = [a1, a2, b1, b2]
+        lst.sort()
+    return lst[1], lst[2]
+
+
 def search(data, anno, chromosome):
-    beg = []
-    end = []
-
     pos = list(zip(anno['pos1'].to_list(), anno['pos2'].to_list()))
+    exon = anno['exon'].to_list()
+    gene = anno['gene'].to_list()
     # start
-    start = data[0]
-    ind = recognition(start, anno)
-    if ind:
-        for i in ind:
-            beg.append(chromosome + '\t' + str(start) + '\t' + str(anno.loc[i]['gene']) + '\t' + "exon{}".format(
-                anno.loc[i]['exon']) + '\t' + str(data[0] - int(anno.loc[i]['pos1'])))
-    else:
-        beg.append(chromosome + '\t' + str(start) + '\t' + 'Non-coding region')
-    # end
-    fin = data[1]
-    ind = recognition(fin, anno)
-    if ind:
-        for i in ind:
-            end.append(chromosome + '\t' + str(fin) + '\t' + str(anno.loc[i]['gene']) + '\t' + "exon{}".format(
-                anno.loc[i]['exon']) + '\t' + str(data[1] - int(anno.loc[i]['pos1'])))
-    else:
-        end.append(chromosome + '\t' + str(fin) + '\t' + 'Non-coding region')
-    return beg, end
-
+    out = []
+    for i in range(len(pos)):
+        if intersect(pos[i],data):
+            a = intersect(pos[i],data)
+            out.append("{}\t{}\texon{}\t({},{})\tlength={}\n".format(chromosome,gene[i],exon[i],a[0],a[1],(a[1]-a[0])+1))
+    return out
 
 def main(ref, cov, outpath):
     # read file
@@ -90,27 +90,12 @@ def main(ref, cov, outpath):
         anno = info[info['chr'] == k]
         for i in tqdm(v, desc='chromosome {}'.format(k)):
             out.append(search(i, anno, k))
-
     # output
-    with open(str(outpath) + '/anno.txt', 'w+') as f:
+    with open(str(outpath) + '/anno_on_CDS.txt', 'w+') as f:
         for i in out:
-            for j in i[0]:
-                f.write('{} | '.format(j))
-            f.write('->')
-            for j in i[1]:
-                f.write('{} | '.format(j))
-            f.write('\n')
-
-    # output filter
-    with open(str(outpath) + '/anno_filter.txt', 'w+') as f:
-        for i in out:
-            if i[0][0].split('\t')[-1] != 'Non-coding region' or i[1][0].split('\t')[-1] != 'Non-coding region':
-                for j in i[0]:
-                    f.write('{} | '.format(j))
-                f.write('->')
-                for j in i[1]:
-                    f.write('{} | '.format(j))
-                f.write('\n')
+            if i:
+                for j in i:
+                    f.write(j)
 
 
 if __name__ == "__main__":
