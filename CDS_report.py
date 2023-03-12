@@ -63,19 +63,21 @@ def search(data, anno, chromosome):
     return out
 
 
-def main(ref, cov, outpath):
+def main(ref, cov, outpath, cutoff):
     # read file
     depth = pd.read_csv(str(cov), sep='\t', names=['chr', 'pos', 'cov'])
     info = pd.read_csv(str(ref), sep='\t', names=['gene', 'exon', 'chr', 'pos1', 'pos2'])
-    # del < 300
-    depth_clear = depth.drop(depth[depth['cov'] < 300].index)
-    print(depth_clear)
+    depth_filter = depth.drop(depth[depth['cov'] > cutoff].index)
     del depth
-    mean = depth_clear['cov'].mean()
-    std = depth_clear['cov'].std()
-    depth_filter = depth_clear.drop(depth_clear[depth_clear['cov'] > mean - std].index)
-    print(depth_filter)
-    del depth_clear
+    # del < 300
+    # depth_clear = depth.drop(depth[depth['cov'] < 300].index)
+    # print(depth_clear)
+    # del depth
+    # mean = depth_clear['cov'].mean()
+    # std = depth_clear['cov'].std()
+    # depth_filter = depth_clear.drop(depth_clear[depth_clear['cov'] > mean - std].index)
+    # print(depth_filter)
+    # del depth_clear
     if depth_filter.size != 0:
         # group each chromosome
         result = depth_filter.groupby('chr').apply(ran_by_chrom)
@@ -103,7 +105,7 @@ def main(ref, cov, outpath):
                     for j in i:
                         f.write(j)
     else:
-        print('Nice seq quality!!!!!')
+        print('Nice seq quality!!!')
 
 
 if __name__ == "__main__":
@@ -111,6 +113,7 @@ if __name__ == "__main__":
     parser.add_argument("--ref", help='exon_range file path')
     parser.add_argument("--cov", help="file of coverage per base")
     parser.add_argument("--out", help="output path")
+    parser.add_argument("--cut", help="set cutoff, default 1000", default=1000)
     args = parser.parse_args()
     if not args.ref:
         raise Exception("No reference file!")
@@ -119,4 +122,4 @@ if __name__ == "__main__":
     elif not args.out:
         raise Exception("Not output path")
     else:
-        main(args.ref, args.cov, args.out)
+        main(args.ref, args.cov, args.out, int(args.cut))
