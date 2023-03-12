@@ -3,6 +3,7 @@ import numpy as np
 from tqdm import tqdm
 import argparse
 
+
 # show low cov range
 ## example: a = [1,2,3,4,5,6,10,11,12,13,15,16,19], return [(1, 6), (10, 13), (15, 16)]
 def stat2region(lst):
@@ -16,7 +17,7 @@ def stat2region(lst):
             start = lst[i + 1]
         else:
             continue
-    ran.append((lst[-1],lst[-1]))
+    ran.append((lst[-1], lst[-1]))
     return ran
 
 
@@ -55,10 +56,12 @@ def search(data, anno, chromosome):
     # start
     out = []
     for i in range(len(pos)):
-        if intersect(pos[i],data):
-            a = intersect(pos[i],data)
-            out.append("{}\t{}\texon{}\t({},{})\tlength={}\n".format(chromosome,gene[i],exon[i],a[0],a[1],(a[1]-a[0])+1))
+        if intersect(pos[i], data):
+            a = intersect(pos[i], data)
+            out.append("{}\t{}\texon{}\t({},{})\tlength={}\n".format(chromosome, gene[i], exon[i], a[0], a[1],
+                                                                     (a[1] - a[0]) + 1))
     return out
+
 
 def main(ref, cov, outpath):
     # read file
@@ -66,36 +69,41 @@ def main(ref, cov, outpath):
     info = pd.read_csv(str(ref), sep='\t', names=['gene', 'exon', 'chr', 'pos1', 'pos2'])
     # del < 300
     depth_clear = depth.drop(depth[depth['cov'] < 300].index)
+    print(depth_clear)
     del depth
     mean = depth_clear['cov'].mean()
     std = depth_clear['cov'].std()
     depth_filter = depth_clear.drop(depth_clear[depth_clear['cov'] > mean - std].index)
+    print(depth_filter)
     del depth_clear
-    # group each chromosome
-    result = depth_filter.groupby('chr').apply(ran_by_chrom)
-    m = list(zip(result['chr'].to_list(), result['range'].to_list()))
-    dt = {}
-    for i in m:
-        if i[0] not in dt.keys():
-            dt[i[0]] = []
-        dt[i[0]].append(i[1])
-    # annotation
-    # chrom_dict = {'NC_003279.8': 'I', 'NC_003280.10': 'II', 'NC_003281.10': 'III', 'NC_003282.8': 'IV',
-    #               'NC_003283.11': 'V',
-    #               'NC_003284.9': 'X'}
-    # chrom = {v: k for k, v in chrom_dict.items()}
+    if depth_filter.size != 0:
+        # group each chromosome
+        result = depth_filter.groupby('chr').apply(ran_by_chrom)
+        m = list(zip(result['chr'].to_list(), result['range'].to_list()))
+        dt = {}
+        for i in m:
+            if i[0] not in dt.keys():
+                dt[i[0]] = []
+            dt[i[0]].append(i[1])
+        # annotation
+        # chrom_dict = {'NC_003279.8': 'I', 'NC_003280.10': 'II', 'NC_003281.10': 'III', 'NC_003282.8': 'IV',
+        #               'NC_003283.11': 'V',
+        #               'NC_003284.9': 'X'}
+        # chrom = {v: k for k, v in chrom_dict.items()}
 
-    out = []
-    for k, v in dt.items():
-        anno = info[info['chr'] == k]
-        for i in tqdm(v, desc='chromosome {}'.format(k)):
-            out.append(search(i, anno, k))
-    # output
-    with open(str(outpath) + '/anno_on_CDS.txt', 'w+') as f:
-        for i in out:
-            if i:
-                for j in i:
-                    f.write(j)
+        out = []
+        for k, v in dt.items():
+            anno = info[info['chr'] == k]
+            for i in tqdm(v, desc='chromosome {}'.format(k)):
+                out.append(search(i, anno, k))
+        # output
+        with open(str(outpath) + '/anno_on_CDS.txt', 'w+') as f:
+            for i in out:
+                if i:
+                    for j in i:
+                        f.write(j)
+    else:
+        print('Nice seq quality!!!!!')
 
 
 if __name__ == "__main__":
